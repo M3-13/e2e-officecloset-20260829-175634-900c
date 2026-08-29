@@ -16,7 +16,7 @@
       "env": {
         "DATABASE_URL": { "dev": "sqlite:///./dev.db" },
         "SECRET_KEY": { "generate": "hex", "bytes": 32 },
-        "FRONTEND_ORIGIN": { "dev": "http://localhost:5173" },
+        "FRONTEND_ORIGIN": { "dev": "${service:frontend.origin}" },
         "UPLOAD_DIR": { "dev": "uploads" },
         "MAX_UPLOAD_BYTES": { "dev": "5242880" },
         "ACCESS_TOKEN_EXPIRE_MINUTES": {
@@ -24,6 +24,20 @@
           "not_secret": true,
           "why": "JWT lifetime in minutes, not a credential"
         }
+      }
+    },
+    {
+      "name": "frontend",
+      "dir": "frontend",
+      "stack": "web-vite",
+      "kind": "server",
+      "install": [["npm", "ci"]],
+      "start": ["npm", "run", "dev", "--", "--port", "${PORT}"],
+      "port": 5173,
+      "port_env": "PORT",
+      "health": { "path": "/", "expect_status": [200] },
+      "env": {
+        "VITE_API_URL": { "dev": "${service:api.origin}" }
       }
     }
   ]
