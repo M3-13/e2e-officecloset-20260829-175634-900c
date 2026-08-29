@@ -6,19 +6,27 @@ the password with bcrypt and answers 409 on a duplicate email. ``POST
 for wrong credentials. Both are guarded by ``rate_limit.limiter`` and answer 429
 once a client exceeds 5 attempts in a minute.
 
-``DELETE /api/auth/me`` is kept as a 501 stub: account deletion is ticket #1's
-slice, not this one.
+``DELETE /api/auth/me`` resolves the caller via ``get_current_user``, removes
+every uploaded image file via ``storage.delete_all_images_for_user`` and deletes
+the user row, whose cascade removes the associated clothing items, outfits and
+outfit links (AC-14).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app import storage
 from app.db import get_db
 from app.models import User
 from app.rate_limit import limiter
 from app.schemas import LoginRequest, Token, UserCreate, UserOut
-from app.security import create_access_token, hash_password, verify_password
+from app.security import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    verify_password,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -76,5 +84,17 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
 
 @router.delete("/me", status_code=204)
-def delete_me() -> None:
-    raise HTTPException(status_code=501, detail="account deletion #1 implements this")
+def delete_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Delete the caller's account and every piece of data that belongs to it.
+
+    Removes the uploaded image files from disk first, then deletes the user row;
+    the ORM cascade drops the associated clothing items, outfits and outfit links
+    (AC-14). Answers 204 with no body.
+    """
+    user_id = current_user.id
+    storage.delete_all_images_for_user(user_id)
+    db.delete(current_user)
+    db.commit()
