@@ -1,0 +1,30 @@
+{
+  "runcontract": 1,
+  "services": [
+    {
+      "name": "api",
+      "dir": "backend",
+      "stack": "python",
+      "kind": "server",
+      "install": [
+        ["${python}", "-m", "pip", "install", "-q", "-r", "requirements.txt"]
+      ],
+      "start": ["${python}", "-m", "uvicorn", "app.main:app", "--port", "${PORT}"],
+      "port": 8000,
+      "port_env": "PORT",
+      "health": { "path": "/api/health", "expect_status": [200] },
+      "env": {
+        "DATABASE_URL": { "dev": "sqlite:///./dev.db" },
+        "SECRET_KEY": { "generate": "hex", "bytes": 32 },
+        "FRONTEND_ORIGIN": { "dev": "http://localhost:5173" },
+        "UPLOAD_DIR": { "dev": "uploads" },
+        "MAX_UPLOAD_BYTES": { "dev": "5242880" },
+        "ACCESS_TOKEN_EXPIRE_MINUTES": {
+          "dev": "30",
+          "not_secret": true,
+          "why": "JWT lifetime in minutes, not a credential"
+        }
+      }
+    }
+  ]
+}
