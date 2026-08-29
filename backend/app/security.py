@@ -43,7 +43,7 @@ def create_access_token(subject: int, expires_delta: timedelta | None = None) ->
     expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    payload = {"sub": str(subject), "exp": expire}
+    payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 
@@ -54,7 +54,12 @@ def decode_access_token(token: str) -> int:
     the wrong key.
     """
     settings = get_settings()
-    payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    # The sprint contract declares ``sub`` as the raw user id (an int). python-jose
+    # enforces the RFC 7519 "sub is a StringOrURI" rule during claim validation, so
+    # that single check is disabled here while signature/expiry validation stays on.
+    payload = jwt.decode(
+        token, settings.secret_key, algorithms=[ALGORITHM], options={"verify_sub": False}
+    )
     subject = payload.get("sub")
     if subject is None:
         raise JWTError("missing subject claim")

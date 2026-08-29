@@ -7,8 +7,10 @@ break the moment its owning ticket merges).
 """
 
 from fastapi.testclient import TestClient
+from jose import jwt
 
 from app import main
+from app.security import create_access_token, decode_access_token
 
 
 def test_health_returns_ok() -> None:
@@ -35,3 +37,14 @@ def test_stub_routers_are_registered() -> None:
     assert "/api/auth/me" in paths
     assert "/api/wardrobe/items" in paths
     assert "/api/outfits" in paths
+
+
+def test_access_token_sub_claim_is_int() -> None:
+    # The shared contract requires JWT claims {sub:user_id:int, exp:int}: the
+    # ``sub`` claim must be encoded as an int, never as a string.
+    token = create_access_token(42)
+    claims = jwt.get_unverified_claims(token)
+    assert isinstance(claims["sub"], int)
+    assert claims["sub"] == 42
+    assert isinstance(claims["exp"], int)
+    assert decode_access_token(token) == 42
